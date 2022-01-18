@@ -1,4 +1,4 @@
-package ex03.socketio;
+package ex04.socketio.dm;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -127,6 +127,7 @@ public class ServerEx extends Thread {
 
 		public ReceiveThread(BufferedReader br, String userId) {
 			this.in = br;
+			this.userId = userId;
 		}
 
 		@Override
@@ -138,8 +139,14 @@ public class ServerEx extends Thread {
 						System.out.println(".quit가 입력되어서 끝낸다!");
 						break;
 					}
+					else if(clientMessage.indexOf(".to") == 0) {
+						sendmsg(clientMessage);
+						
+					}else {
 					System.out.println(userId + ">>> " + clientMessage);
 					broadcast(userId + ">>> " + clientMessage);
+					}
+				
 					try {
 						Thread.sleep(100);
 					} catch (InterruptedException e) {
@@ -150,6 +157,25 @@ public class ServerEx extends Thread {
 				}
 
 			}
+		}
+
+		private void sendmsg(String msg) {
+			int start = msg.indexOf(" ") +1;
+			int end = msg.indexOf(" ",start);
+			if(end != -1) {
+				String to = msg.substring(start, end);
+				String realMsg = msg.substring(end+1);
+				Object obj = userMap.get(to).pw;
+				if(obj != null) {
+					PrintWriter pw = (PrintWriter) obj;
+					pw.println(userId + "님의 귓속말 : "+realMsg);
+					pw.flush();
+				}
+				
+			}else {
+				System.out.println("존재하지 않습니다");
+			}
+			
 		}
 	} // end of ReceiveThread
 }

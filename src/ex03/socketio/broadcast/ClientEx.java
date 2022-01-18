@@ -1,4 +1,4 @@
-package ex03.socketio;
+package ex03.socketio.broadcast;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
