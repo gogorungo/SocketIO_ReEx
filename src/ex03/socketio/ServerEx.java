@@ -14,13 +14,21 @@ import java.util.Scanner;
 import java.util.Vector;
 
 public class ServerEx extends Thread {
-	HashMap<String, Socket> userMap = new HashMap<String, Socket>();	
-	
+	class User {
+		Socket socket;
+		BufferedReader br;
+		PrintWriter pw;
+
+		public User(Socket socket, BufferedReader br, PrintWriter pw) {
+			this.socket = socket;
+			this.br = br;
+			this.pw = pw;
+		}
+	}
+
+	HashMap<String, User> userMap = new HashMap<String, User>();
 	ServerSocket listener = null;
 	Socket socket = null;
-	BufferedReader br = null;
-	BufferedWriter bw = null;
-	PrintWriter pw = null;
 	Scanner scan = new Scanner(System.in);
 
 	public ServerEx() {
@@ -33,22 +41,15 @@ public class ServerEx extends Thread {
 			// 쓰레드 실행 순서가 중요하다.
 			this.start();
 
-			
-
 			// 서버에서 임의 메세지 입력 기능
 			while (true) {
 				String line = scan.nextLine();
-				pw.printf("Server>>> %s\n", line);
-				pw.flush();
+				broadcast(String.format("Server>>> %s\n", line));
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
 		} finally {
 			try {
-				if (bw != null)
-					bw.close();
-				if (br != null)
-					br.close();
 				if (socket != null)
 					socket.close();
 			} catch (IOException e) {
@@ -73,25 +74,22 @@ public class ServerEx extends Thread {
 	private void acceptSocket() {
 		try {
 			socket = listener.accept();
-			System.out.println("서버 >>> 클라이언트와 접속이 되었습니다~");
 			// 클라이언트와 입/출력 스트림을 연결한다.
-			br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-			// bw = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-			// 클라이언트의 userId를 읽어오기
+			BufferedReader br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+			PrintWriter pw = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
 			// 메세지 받는 쓰레드 실행
-
 			try {
 				// 라인의 '\n'이다. '\n'이 없는 데이터는 readLine()로 읽을 수 없다.
 				String userId = br.readLine();
 				System.out.println("서버 >>> " + userId + "님이 접속 하였습니다!");
 				// userId가 있고 pw가 있다면 사용자를 map 추가한다.
-				userMap.put(userId, socket);
-				broadcast(">> "+userId + "님이 입장하셨습니다.");
-				
+				userMap.put(userId, new User(socket, br, pw));
+				broadcast(">> " + userId + "님이 입장하셨습니다.");
+
 				ReceiveThread receive = new ReceiveThread(br, userId);
 				receive.start();
 			} catch (Exception e) {
-				System.out.println("사용자 소켓 생성 예외 발생");
+				System.out.println("사용자 소켓 생성 예외 발생!");
 				System.out.println(e.getMessage());
 			}
 		} catch (IOException e) {
@@ -102,17 +100,15 @@ public class ServerEx extends Thread {
 	private void broadcast(String message) {
 		// userMap에 저장된 모든 사용자들에게 메세지를 전달한다.
 		Iterator<String> keys = userMap.keySet().iterator();
-		while(keys.hasNext()) {
+		while (keys.hasNext()) {
 			String key = keys.next();
-			Socket socket = userMap.get(key);
+			User user = userMap.get(key);
+			Socket socket = user.socket;
 			try {
-				//메시지 보내는 기능이므로 리더는 필요없다
-				//BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-				PrintWriter out = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
-				out.println(message);
+				PrintWriter out = user.pw;
+				out.println(new String(message.getBytes(), "utf-8"));
 				out.flush();
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
@@ -128,17 +124,16 @@ public class ServerEx extends Thread {
 		// 연결된 소켓과의 입력 스트립 객체
 		BufferedReader in = null;
 		String userId = "";
+
 		public ReceiveThread(BufferedReader br, String userId) {
 			this.in = br;
-			this.userId = userId;
 		}
 
 		@Override
 		public void run() {
 			while (true && in != null) {
-				System.out.println("ReceiveThread ...");
 				try {
-					String clientMessage = br.readLine();
+					String clientMessage = in.readLine();
 					if (".quit".equalsIgnoreCase(clientMessage)) {
 						System.out.println(".quit가 입력되어서 끝낸다!");
 						break;

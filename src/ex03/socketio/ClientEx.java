@@ -7,6 +7,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.Scanner;
 
@@ -15,6 +16,7 @@ public class ClientEx {
 	BufferedReader br;
 	BufferedWriter bw;
 	Scanner scan = new Scanner(System.in);
+	static String[] fieldArgs;
 
 	public ClientEx() {
 		try {
@@ -25,7 +27,11 @@ public class ClientEx {
 			br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 			bw = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
 			// 서버에 userId 보내기
-			bw.write("user01" + "\n");
+			String userId = "user" + (int)(Math.random()*1000);
+			if(fieldArgs != null && fieldArgs.length != 0) {
+				userId = fieldArgs[0];
+			}
+			bw.write(userId + "\n");
 			bw.flush(); // 버퍼를 비워준다.
 
 			// ReceiveThread 실행
@@ -39,7 +45,7 @@ public class ClientEx {
 				bw.flush();
 				if (".quit".equalsIgnoreCase(line)) {
 					System.out.println(".quit가 입력되어서 끝낸다!");
-					break;
+					System.exit(0);
 				}
 			}
 		} catch (UnknownHostException e) {
@@ -50,6 +56,7 @@ public class ClientEx {
 	}
 
 	public static void main(String[] args) {
+		fieldArgs = args;
 		new ClientEx();
 	}
 
@@ -71,12 +78,21 @@ public class ClientEx {
 					try {
 						Thread.sleep(100);
 					} catch (InterruptedException e) {
-						e.printStackTrace();
+						break;
 					}
-				} catch (IOException e) {
+				} catch (SocketException e) {
+					System.out.println("클라이언트>> 서버와 연결이 끊어졌습니다.");
+					try {
+						if(socket != null) socket.close();
+					} catch (IOException e1) {
+						e1.printStackTrace();
+					}
+					System.exit(0); // 강제 종료
+				}
+				catch (IOException e) {
 					e.printStackTrace();
 				}
-			}
+			} // end of while
 		}
 	} // end of ReceiveThread
 }
